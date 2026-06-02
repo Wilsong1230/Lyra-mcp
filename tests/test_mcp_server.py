@@ -69,6 +69,9 @@ def test_transcribe_returns_text(mock_post, tmp_path):
     from mcp_server import transcribe
     result = transcribe(str(audio_file))
     assert "hello world" in result
+    # Verify it called lyra-listen (port 8002), not lyra-voice (port 8001)
+    call_url = mock_post.call_args[0][0]
+    assert "8002" in call_url
 
 
 def test_transcribe_missing_file():

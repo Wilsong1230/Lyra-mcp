@@ -8,6 +8,7 @@ mcp = FastMCP("lyra")
 
 EMBODIMENT_URL = os.getenv("EMBODIMENT_URL", "http://localhost:8000")
 VOICE_URL = os.getenv("VOICE_URL", "http://localhost:8001")
+LISTEN_URL = os.getenv("LISTEN_URL", "http://localhost:8002")
 
 
 @mcp.tool()
@@ -50,13 +51,13 @@ def transcribe(audio_path: str) -> str:
     """Transcribe a local audio file to text using Whisper."""
     try:
         with open(audio_path, "rb") as f:
-            resp = httpx.post(f"{VOICE_URL}/transcribe", files={"file": f}, timeout=60)
+            resp = httpx.post(f"{LISTEN_URL}/transcribe", files={"file": f}, timeout=60)
         resp.raise_for_status()
         return resp.json()["text"]
     except FileNotFoundError:
         return f"Error: file not found — {audio_path}"
     except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as e:
-        return f"Error: could not reach lyra-voice — {e}"
+        return f"Error: could not reach lyra-listen — {e}"
 
 
 @mcp.tool()
