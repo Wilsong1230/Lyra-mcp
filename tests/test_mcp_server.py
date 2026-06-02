@@ -41,3 +41,46 @@ def test_get_state_service_down(mock_get):
     from mcp_server import get_state
     result = get_state()
     assert "Error" in result
+
+
+@patch("mcp_server.httpx.post")
+def test_speak_returns_confirmation(mock_post):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_post.return_value = mock_resp
+    from mcp_server import speak
+    result = speak("Hello, this is Lyra.")
+    assert "Hello, this is Lyra." in result
+
+
+@patch("mcp_server.httpx.post")
+def test_speak_service_down(mock_post):
+    mock_post.side_effect = httpx.ConnectError("refused")
+    from mcp_server import speak
+    result = speak("Hello.")
+    assert "Error" in result
+
+
+@patch("mcp_server.httpx.post")
+def test_transcribe_returns_text(mock_post, tmp_path):
+    mock_post.return_value = mock_response({"text": "hello world"})
+    audio_file = tmp_path / "test.wav"
+    audio_file.write_bytes(b"RIFF" + b"\x00" * 36)
+    from mcp_server import transcribe
+    result = transcribe(str(audio_file))
+    assert "hello world" in result
+
+
+def test_transcribe_missing_file():
+    from mcp_server import transcribe
+    result = transcribe("/nonexistent/path.wav")
+    assert "Error" in result
+
+
+@patch("mcp_server.httpx.get")
+def test_list_voices_returns_names(mock_get):
+    mock_get.return_value = mock_response({"voices": ["bf_emma", "bm_george"]})
+    from mcp_server import list_voices
+    result = list_voices()
+    assert "bf_emma" in result
+    assert "bm_george" in result
