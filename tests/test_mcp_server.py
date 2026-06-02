@@ -87,3 +87,44 @@ def test_list_voices_returns_names(mock_get):
     result = list_voices()
     assert "bf_emma" in result
     assert "bm_george" in result
+
+
+@patch("mcp_server.httpx.post")
+def test_lyra_see_returns_description(mock_post):
+    processing_resp = mock_response({"state": "processing", "color": "#F39C12"})
+    see_resp = MagicMock(spec=httpx.Response)
+    see_resp.raise_for_status.return_value = None
+    see_resp.json.return_value = {"description": "A terminal with Python code."}
+    curious_resp = mock_response({"state": "curious", "color": "#00D4FF"})
+    mock_post.side_effect = [processing_resp, see_resp, curious_resp]
+
+    from mcp_server import lyra_see
+    result = lyra_see(source="screen", prompt="What do you see?")
+    assert result == "A terminal with Python code."
+
+
+@patch("mcp_server.httpx.post")
+def test_lyra_see_vision_service_down(mock_post):
+    processing_resp = mock_response({"state": "processing", "color": "#F39C12"})
+    mock_post.side_effect = [processing_resp, httpx.ConnectError("refused")]
+
+    from mcp_server import lyra_see
+    result = lyra_see()
+    assert "Error" in result
+    assert "lyra-vision" in result
+
+
+@patch("mcp_server.httpx.post")
+def test_lyra_see_webcam_source(mock_post):
+    processing_resp = mock_response({"state": "processing", "color": "#F39C12"})
+    see_resp = MagicMock(spec=httpx.Response)
+    see_resp.raise_for_status.return_value = None
+    see_resp.json.return_value = {"description": "A smiling person."}
+    curious_resp = mock_response({"state": "curious", "color": "#00D4FF"})
+    mock_post.side_effect = [processing_resp, see_resp, curious_resp]
+
+    from mcp_server import lyra_see
+    result = lyra_see(source="webcam", prompt="Who is there?")
+    assert result == "A smiling person."
+    see_call_url = mock_post.call_args_list[1][0][0]
+    assert "8003" in see_call_url

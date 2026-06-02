@@ -9,6 +9,7 @@ mcp = FastMCP("lyra")
 EMBODIMENT_URL = os.getenv("EMBODIMENT_URL", "http://localhost:8000")
 VOICE_URL = os.getenv("VOICE_URL", "http://localhost:8001")
 LISTEN_URL = os.getenv("LISTEN_URL", "http://localhost:8002")
+VISION_URL = os.getenv("VISION_URL", "http://localhost:8003")
 
 
 @mcp.tool()
@@ -68,6 +69,30 @@ def list_voices() -> str:
         return ", ".join(data["voices"])
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         return f"Error: could not reach lyra-voice — {e}"
+
+
+@mcp.tool()
+def lyra_see(source: str = "screen", prompt: str = "Describe what you see.") -> str:
+    """See the user's screen or webcam. source: 'screen' (default) or 'webcam'. Lyra picks based on context."""
+    try:
+        httpx.post(f"{EMBODIMENT_URL}/state", json={"state": "processing"}, timeout=5)
+    except (httpx.ConnectError, httpx.TimeoutException):
+        pass
+    try:
+        resp = httpx.post(
+            f"{VISION_URL}/see",
+            json={"source": source, "prompt": prompt},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        description = resp.json()["description"]
+        try:
+            httpx.post(f"{EMBODIMENT_URL}/state", json={"state": "curious"}, timeout=5)
+        except (httpx.ConnectError, httpx.TimeoutException):
+            pass
+        return description
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as e:
+        return f"Error: could not reach lyra-vision — {e}"
 
 
 if __name__ == "__main__":
