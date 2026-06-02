@@ -41,7 +41,7 @@ def speak(text: str, sync_emotion: bool = True) -> str:
         )
         resp.raise_for_status()
         return f"Spoke: {text!r}"
-    except (httpx.ConnectError, httpx.TimeoutException) as e:
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as e:
         return f"Error: could not reach lyra-voice — {e}"
 
 
@@ -55,7 +55,7 @@ def transcribe(audio_path: str) -> str:
         return resp.json()["text"]
     except FileNotFoundError:
         return f"Error: file not found — {audio_path}"
-    except (httpx.ConnectError, httpx.TimeoutException) as e:
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as e:
         return f"Error: could not reach lyra-voice — {e}"
 
 
