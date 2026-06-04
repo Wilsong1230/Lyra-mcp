@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+import datetime
 import os
+import sqlite3
+from pathlib import Path
 import httpx
 from mcp.server.fastmcp import FastMCP
+
+_DB_PATH = Path.home() / ".lyra" / "memory.db"
+
+
+def _log(msg: str) -> None:
+    ts = datetime.datetime.now().isoformat(timespec="seconds")
+    print(f"[{ts}] {msg}")
 
 mcp = FastMCP("lyra")
 
@@ -93,6 +103,39 @@ def lyra_see(source: str = "screen", prompt: str = "Describe what you see.") -> 
         return description
     except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as e:
         return f"Error: could not reach lyra-vision — {e}"
+
+
+@mcp.tool()
+def search_episodes(query: str, limit: int = 5) -> list[dict]:
+    """Search Lyra's long-term episodic memory for past experiences. Use this when you need to recall something that happened previously but is not in your current working memory. Search is keyword-based against SQLite — use specific nouns or phrases that would appear verbatim in episode text. Do not use fuzzy or semantic phrasing."""
+    _log(f"search_episodes query={query!r} limit={limit}")
+    try:
+        with sqlite3.connect(_DB_PATH) as conn:
+            rows = conn.execute(
+                "SELECT id, content, ts FROM episodes "
+                "WHERE content LIKE ? ORDER BY ts DESC LIMIT ?",
+                (f"%{query}%", limit),
+            ).fetchall()
+        return [{"id": r[0], "content": r[1], "ts": r[2]} for r in rows]
+    except sqlite3.Error as e:
+        return [{"error": str(e)}]
+
+
+@mcp.tool()
+def get_fact(subject_key: str) -> dict | None:
+    """Look up a specific hard fact from Lyra's structured state. Use this when you need a precise value — API configs, user preferences, active project details, or any stored system state. Requires the exact key string. Returns None if key does not exist."""
+    _log(f"get_fact key={subject_key!r}")
+    try:
+        with sqlite3.connect(_DB_PATH) as conn:
+            row = conn.execute(
+                "SELECT key, value, updated_at FROM facts WHERE key = ?",
+                (subject_key,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {"key": row[0], "value": row[1], "updated_at": row[2]}
+    except sqlite3.Error as e:
+        return {"error": str(e)}
 
 
 if __name__ == "__main__":
